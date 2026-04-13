@@ -1,0 +1,67 @@
+{
+  "project": {
+    "name": "KosPintar",
+    "description": "Smart property management system with mock data for UI-first development"
+  },
+  "development": {
+    "devServer": {
+      "command": "npm run dev",
+      "port": 5173,
+      "readyPattern": "Local:.*http"
+    },
+    "testing": {
+      "command": "npm run test:watch",
+      "pattern": "PASS|FAIL"
+    },
+    "linting": {
+      "command": "npm run lint:fix",
+      "autoFixOnSave": true
+    },
+    "typeChecking": {
+      "command": "npm run type-check",
+      "watchMode": true
+    }
+  },
+  "hooks": {
+    "onSessionStart": {
+      "name": "setup-dev-environment",
+      "description": "Set up development environment on session start",
+      "condition": "!hasFile('node_modules')",
+      "command": "npm run dev:quick"
+    },
+    "beforeCommit": {
+      "name": "quality-check",
+      "description": "Run type-check and lint before committing",
+      "command": "npm run check"
+    },
+    "afterBuild": {
+      "name": "build-summary",
+      "description": "Show build summary",
+      "command": "echo '✅ Build complete! Ready to test.'"
+    }
+  },
+  "workflow": {
+    "addingFeature": [
+      "Create page: npm run create:page",
+      "Add mock data if needed: npm run add:mock",
+      "Add route: npm run add:route",
+      "Run type-check: npm run type-check",
+      "Test in browser: npm run dev"
+    ],
+    "beforePushing": [
+      "Run full check: npm run dev:check",
+      "Review changes: git diff",
+      "Commit: git commit -m 'message'"
+    ]
+  },
+  "mockData": {
+    "dataPath": "src/lib/mock-data.ts",
+    "hooksPath": "src/hooks/use-queries.ts",
+    "note": "All mock data centralized - easy swap to API when ready"
+  },
+  "documentation": {
+    "development": "DEVELOPMENT.md",
+    "architecture": "CLAUDE.md",
+    "changelog": "CHANGELOG.md"
+  }
+}
