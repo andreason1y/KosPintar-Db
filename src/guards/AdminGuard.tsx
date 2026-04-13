@@ -2,7 +2,7 @@ import { ReactNode } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "@/lib/auth-context";
 import { useDemo } from "@/lib/demo-context";
-import { supabase } from "@/integrations/supabase/client";
+import { MOCK_ADMIN_USER } from "@/lib/mock-data";
 
 interface AdminGuardProps {
   children: ReactNode;
@@ -10,20 +10,12 @@ interface AdminGuardProps {
 }
 
 /**
- * Guard that requires admin role
- * Checks user's role in public.users table
+ * Mock admin check - returns true only for admin users
+ * When real API is ready, replace with actual backend call
  */
 export async function checkIsAdmin(userId: string): Promise<boolean> {
-  try {
-    const { data } = await supabase
-      .from("users")
-      .select("role")
-      .eq("id", userId)
-      .single();
-    return data?.role === "admin";
-  } catch {
-    return false;
-  }
+  // For mock, check if user is the admin user
+  return userId === MOCK_ADMIN_USER.id;
 }
 
 /**

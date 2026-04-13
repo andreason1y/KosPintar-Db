@@ -1,7 +1,7 @@
 import { ErrorBoundary } from "./error-boundary";
 import { Providers } from "./providers";
 import { Router } from "./router";
-import UpgradeModal from "@/components/UpgradeModal";
+import UpgradeModal from "@/component/UpgradeModal";
 
 /**
  * Root application component

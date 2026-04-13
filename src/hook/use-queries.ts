@@ -1,266 +1,264 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import * as Sentry from "@sentry/react";
-import { supabase } from "@/integrations/supabase/client";
+/**
+ * Mock Query Hooks
+ * These hooks return mock data instead of making API calls
+ * Structure matches the original Supabase queries for easy API integration later
+ *
+ * When ready to add real API:
+ * 1. Create /src/services/api.ts with real API calls
+ * 2. Replace mock data returns with actual API calls
+ * 3. No component changes needed - same hook signatures!
+ */
+
 import { useProperty } from "@/lib/property-context";
-import { useDemo } from "@/lib/demo-context";
+import {
+  MOCK_ROOM_TYPES,
+  MOCK_ROOMS,
+  MOCK_TENANTS,
+  MOCK_TRANSACTIONS,
+  MOCK_EXPENSES,
+  MOCK_DEPOSITS,
+  MOCK_REMINDERS,
+  MOCK_BROADCASTS,
+  MOCK_USER,
+  getMockDataByProperty,
+} from "@/lib/mock-data";
 
-const STALE_TIME = 5 * 60 * 1000; // 5 minutes
-
-// ---- Raw data fetchers (non-demo) ----
-
-async function fetchRoomTypesAndRooms(propertyId: string) {
-  const { data: types, error: typesError } = await supabase
-    .from("room_types")
-    .select("*")
-    .eq("property_id", propertyId)
-    .order("created_at") as any;
-  if (typesError) Sentry.captureException(typesError, { tags: { source: "fetchRoomTypes", propertyId } });
-  const rtIds = (types || []).map((t: any) => t.id);
-  let rooms: any[] = [];
-  if (rtIds.length > 0) {
-    const { data, error: roomsError } = await supabase.from("rooms").select("*").in("room_type_id", rtIds).order("nomor") as any;
-    if (roomsError) Sentry.captureException(roomsError, { tags: { source: "fetchRooms", propertyId } });
-    rooms = data || [];
-  }
-  return { roomTypes: types || [], rooms };
+// Standard return type for all hooks
+interface QueryResult<T> {
+  data: T;
+  isLoading: boolean;
+  error: null;
 }
 
-async function fetchTenants(propertyId: string) {
-  const { data, error } = await supabase
-    .from("tenants")
-    .select("*")
-    .eq("property_id", propertyId)
-    .order("created_at", { ascending: false }) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchTenants", propertyId } });
-  return (data || []) as any[];
-}
-
-async function fetchTransactions(propertyId: string) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .eq("property_id", propertyId)
-    .order("created_at", { ascending: false }) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchTransactions", propertyId } });
-  return (data || []) as any[];
-}
-
-async function fetchExpenses(propertyId: string, startDate: string, endDate: string) {
-  const { data, error } = await supabase
-    .from("expenses")
-    .select("*")
-    .eq("property_id", propertyId)
-    .gte("tanggal", startDate)
-    .lt("tanggal", endDate)
-    .order("tanggal", { ascending: false }) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchExpenses", propertyId } });
-  return (data || []) as any[];
-}
-
-async function fetchDeposits(propertyId: string) {
-  const { data, error } = await supabase
-    .from("deposits")
-    .select("*")
-    .eq("property_id", propertyId) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchDeposits", propertyId } });
-  return (data || []) as any[];
-}
-
-async function fetchReminders(propertyId: string, bulan: number, tahun: number) {
-  const { data, error } = await supabase
-    .from("reminders")
-    .select("id, type, message, wa_link, is_read, tenant_id")
-    .eq("property_id", propertyId)
-    .eq("periode_bulan", bulan)
-    .eq("periode_tahun", tahun)
-    .eq("is_read", false) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchReminders", propertyId } });
-  return (data || []) as any[];
-}
-
-async function fetchBroadcasts() {
-  const sevenDaysAgo = new Date();
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-  const { data, error } = await supabase
-    .from("broadcasts")
-    .select("id, message, created_at")
-    .gte("created_at", sevenDaysAgo.toISOString())
-    .order("created_at", { ascending: false }) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchBroadcasts" } });
-  return (data || []) as any[];
-}
-
-async function fetchProfile(userId: string) {
-  const { data, error } = await supabase.from("profiles").select("nama, no_hp").eq("id", userId).single() as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchProfile", userId } });
-  return data;
-}
-
-async function fetchOverduePaymentStats(propertyId: string) {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("id, is_overdue, overdue_days")
-    .eq("property_id", propertyId)
-    .eq("is_overdue", true) as any;
-  if (error) Sentry.captureException(error, { tags: { source: "fetchOverduePaymentStats", propertyId } });
-
-  const overduePayments = (data || []) as any[];
-  return {
-    count: overduePayments.length,
-    totalDays: overduePayments.reduce((sum, tx) => sum + (tx.overdue_days || 0), 0),
-  };
-}
-
-// ---- Hooks ----
+// ---- Room & Room Type Hooks ----
 
 export function useRoomTypesAndRooms() {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["roomTypesAndRooms", pid],
-    queryFn: () => fetchRoomTypesAndRooms(pid!),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: { roomTypes: [], rooms: [] },
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const roomTypes = MOCK_ROOM_TYPES.filter((rt) => rt.property_id === activeProperty.id);
+  const rooms = MOCK_ROOMS.filter((r) => r.property_id === activeProperty.id);
+
+  return {
+    data: { roomTypes, rooms },
+    isLoading: false,
+    error: null,
+  } as QueryResult<{ roomTypes: any[]; rooms: any[] }>;
 }
+
+// ---- Tenant Hooks ----
 
 export function useTenants() {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["tenants", pid],
-    queryFn: () => fetchTenants(pid!),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const tenants = MOCK_TENANTS.filter((t) => t.property_id === activeProperty.id).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return {
+    data: tenants,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
+
+// ---- Transaction Hooks ----
 
 export function useTransactions() {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["transactions", pid],
-    queryFn: () => fetchTransactions(pid!),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const transactions = MOCK_TRANSACTIONS.filter((tx) => tx.property_id === activeProperty.id).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return {
+    data: transactions,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
+
+// ---- Expense Hooks ----
 
 export function useExpenses(bulan: number, tahun: number) {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  const startDate = `${tahun}-${String(bulan).padStart(2, "0")}-01`;
-  const endMonth = bulan === 12 ? 1 : bulan + 1;
-  const endYear = bulan === 12 ? tahun + 1 : tahun;
-  const endDate = `${endYear}-${String(endMonth).padStart(2, "0")}-01`;
-  return useQuery({
-    queryKey: ["expenses", pid, bulan, tahun],
-    queryFn: () => fetchExpenses(pid!, startDate, endDate),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const expenses = MOCK_EXPENSES.filter((exp) => {
+    if (exp.property_id !== activeProperty.id) return false;
+    const expDate = new Date(exp.tanggal);
+    return expDate.getMonth() + 1 === bulan && expDate.getFullYear() === tahun;
+  }).sort((a, b) => new Date(b.tanggal).getTime() - new Date(a.tanggal).getTime());
+
+  return {
+    data: expenses,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
+
+// ---- Deposit Hooks ----
 
 export function useDeposits() {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["deposits", pid],
-    queryFn: () => fetchDeposits(pid!),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const deposits = MOCK_DEPOSITS.filter((dep) => dep.property_id === activeProperty.id);
+
+  return {
+    data: deposits,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
+
+// ---- Reminder Hooks ----
 
 export function useReminders(bulan: number, tahun: number) {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["reminders", pid, bulan, tahun],
-    queryFn: () => fetchReminders(pid!, bulan, tahun),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: [],
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const reminders = MOCK_REMINDERS.filter(
+    (rem) =>
+      rem.property_id === activeProperty.id &&
+      rem.periode_bulan === bulan &&
+      rem.periode_tahun === tahun &&
+      !rem.is_read
+  );
+
+  return {
+    data: reminders,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
+
+// ---- Broadcast Hooks ----
 
 export function useBroadcasts() {
-  const { isDemo } = useDemo();
-  return useQuery({
-    queryKey: ["broadcasts"],
-    queryFn: fetchBroadcasts,
-    enabled: !isDemo,
-    staleTime: STALE_TIME,
-  });
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+
+  const broadcasts = MOCK_BROADCASTS.filter((b) => new Date(b.created_at) >= sevenDaysAgo).sort(
+    (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  );
+
+  return {
+    data: broadcasts,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any[]>;
 }
 
+// ---- Profile Hooks ----
+
 export function useProfile(userId: string | undefined) {
-  const { isDemo } = useDemo();
-  return useQuery({
-    queryKey: ["profile", userId],
-    queryFn: () => fetchProfile(userId!),
-    enabled: !isDemo && !!userId,
-    staleTime: STALE_TIME,
-  });
+  if (!userId) {
+    return {
+      data: null,
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  // For mock data, return the mock user's profile
+  const profile = userId === MOCK_USER.id ? { nama: MOCK_USER.nama, no_hp: MOCK_USER.no_hp } : null;
+
+  return {
+    data: profile,
+    isLoading: false,
+    error: null,
+  } as QueryResult<any>;
 }
+
+// ---- Overdue Payment Stats Hooks ----
 
 export function useOverduePaymentStats() {
   const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-  return useQuery({
-    queryKey: ["overdueStats", pid],
-    queryFn: () => fetchOverduePaymentStats(pid!),
-    enabled: !isDemo && !!pid,
-    staleTime: STALE_TIME,
-  });
+
+  if (!activeProperty) {
+    return {
+      data: { count: 0, totalDays: 0 },
+      isLoading: false,
+      error: null,
+    };
+  }
+
+  const overduePayments = MOCK_TRANSACTIONS.filter(
+    (tx) => tx.property_id === activeProperty.id && tx.is_overdue
+  );
+
+  return {
+    data: {
+      count: overduePayments.length,
+      totalDays: overduePayments.reduce((sum, tx) => sum + tx.overdue_days, 0),
+    },
+    isLoading: false,
+    error: null,
+  } as QueryResult<{ count: number; totalDays: number }>;
 }
 
 // ---- Invalidation helpers ----
 export function useInvalidate() {
-  const qc = useQueryClient();
+  // Mock implementation - no-op since we're not using React Query caching
   return {
-    rooms: () => qc.invalidateQueries({ queryKey: ["roomTypesAndRooms"] }),
-    tenants: () => qc.invalidateQueries({ queryKey: ["tenants"] }),
-    transactions: () => qc.invalidateQueries({ queryKey: ["transactions"] }),
-    overdueStats: () => qc.invalidateQueries({ queryKey: ["overdueStats"] }),
-    expenses: () => qc.invalidateQueries({ queryKey: ["expenses"] }),
-    deposits: () => qc.invalidateQueries({ queryKey: ["deposits"] }),
-    profile: () => qc.invalidateQueries({ queryKey: ["profile"] }),
-    all: () => qc.invalidateQueries(),
+    rooms: () => {},
+    tenants: () => {},
+    transactions: () => {},
+    overdueStats: () => {},
+    expenses: () => {},
+    deposits: () => {},
+    profile: () => {},
+    all: () => {},
   };
 }
 
 // ---- Prefetching ----
 export function usePrefetchRoutes() {
-  const qc = useQueryClient();
-  const { activeProperty } = useProperty();
-  const { isDemo } = useDemo();
-  const pid = activeProperty?.id;
-
-  const prefetch = () => {
-    if (isDemo || !pid) return;
-    qc.prefetchQuery({
-      queryKey: ["tenants", pid],
-      queryFn: () => fetchTenants(pid),
-      staleTime: STALE_TIME,
-    });
-    qc.prefetchQuery({
-      queryKey: ["roomTypesAndRooms", pid],
-      queryFn: () => fetchRoomTypesAndRooms(pid),
-      staleTime: STALE_TIME,
-    });
-    qc.prefetchQuery({
-      queryKey: ["transactions", pid],
-      queryFn: () => fetchTransactions(pid),
-      staleTime: STALE_TIME,
-    });
-  };
-
-  return prefetch;
+  // Mock implementation - no-op since we're not using React Query prefetch
+  return () => {};
 }

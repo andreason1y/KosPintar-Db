@@ -4,7 +4,7 @@ import {
   AlertDialog, AlertDialogContent, AlertDialogHeader,
   AlertDialogTitle, AlertDialogDescription, AlertDialogFooter,
   AlertDialogCancel, AlertDialogAction,
-} from "@/components/ui/alert-dialog";
+} from "@/component/ui/alert-dialog";
 import { Crown } from "lucide-react";
 
 export default function UpgradeModal() {

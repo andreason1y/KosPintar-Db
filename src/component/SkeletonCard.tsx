@@ -1,4 +1,4 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from "@/component/ui/skeleton";
 
 export default function SkeletonCard({ lines = 3 }: { lines?: number }) {
   return (

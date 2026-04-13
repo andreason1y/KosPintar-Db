@@ -3,9 +3,8 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import BottomNav from "./BottomNav";
 import { AppSidebar } from "./AppSidebar";
-import { SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider } from "@/component/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth-context";
 import { useDemo } from "@/lib/demo-context";
 import logoIcon from "@/assets/logo-icon.png";
@@ -24,23 +23,26 @@ export default function AppShell({ children }: { children: ReactNode }) {
   const [bannerDismissed, setBannerDismissed] = useState(false);
 
   useEffect(() => {
-    supabase.from("settings").select("key, value").then(({ data }) => {
-      const map: Record<string, number> = {};
-      ((data || []) as any[]).forEach((r: any) => { map[r.key] = r.value; });
-      if (map.maintenance_mode === 1) setMaintenanceMode(true);
-      if (map.in_app_announcement_active === 1) setInAppAnnouncementActive(true);
-    });
-    supabase.from("settings_text").select("key, value").then(({ data }) => {
-      const map: Record<string, string> = {};
-      ((data || []) as any[]).forEach((r: any) => { map[r.key] = r.value; });
-      if (map.in_app_announcement_text) setInAppAnnouncement(map.in_app_announcement_text);
-    });
+    // Load mock settings
+    const settingsMap: Record<string, number> = {
+      maintenance_mode: 0,
+      in_app_announcement_active: 1,
+    };
+    if (settingsMap.maintenance_mode === 1) setMaintenanceMode(true);
+    if (settingsMap.in_app_announcement_active === 1) setInAppAnnouncementActive(true);
+
+    // Load mock settings text
+    const settingsTextMap: Record<string, string> = {
+      in_app_announcement_text: "Selamat datang di KosPintar! Kami terus berinovasi untuk melayani Anda lebih baik.",
+    };
+    if (settingsTextMap.in_app_announcement_text) setInAppAnnouncement(settingsTextMap.in_app_announcement_text);
   }, []);
 
-  // Update last_login
+  // Update last_login (mock - no-op)
   useEffect(() => {
     if (user && !isDemo) {
-      supabase.from("profiles").update({ last_login: new Date().toISOString() } as any).eq("id", user.id).then(() => {});
+      // Mock implementation - in real app, update last_login in database
+      console.debug("User last login:", new Date().toISOString());
     }
   }, [user?.id]);
 

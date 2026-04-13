@@ -14,8 +14,8 @@ import {
   SidebarMenuItem,
   SidebarHeader,
   SidebarFooter,
-} from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+} from "@/component/ui/sidebar";
+import { Avatar, AvatarFallback } from "@/component/ui/avatar";
 import { getAvatarColor } from "@/lib/avatar-colors";
 
 const items = [
